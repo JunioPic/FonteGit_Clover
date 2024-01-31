@@ -382,8 +382,7 @@ user function RelComp()
     QRC->(DbSkip())
   EndDo
     xRodpe( _nFretcif,_nFretfob, _nFreteout) 
-   
-
+    
     oPrinter:EndPage()
 	If lPreview
 	     oPrinter:Preview()
