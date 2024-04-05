@@ -1,0 +1,257 @@
+#INCLUDE "PROTHEUS.CH"
+#INCLUDE "TOPCONN.CH"
+#INCLUDE "TOTVS.CH"
+#INCLUDE "TBICONN.CH"
+#include "rwmake.ch"
+
+User Function xEtqpclo()
+
+  //Fontes
+  Local cFontUti    := "Tahoma"
+  Local oFontSubN   := TFont():New(cFontUti,,-20,,.T.)
+  Local oFontBtn    := TFont():New(cFontUti,,-10)
+  Local oFontCbx    := TFont():New(cFontUti,,-15,,.T.)
+
+  Local oDlg
+  Local oSay, oSay1, oSay2, oSay3, oSay4, oSay5, oSay6, oSay7, oSay8
+  Local cLote    := Space(10)
+  Local cSubl    := Space(10)
+  Local nQtda    := 0
+  Local nQtdai   := 0
+  Local nQtdaf   := 0
+  Local nPesl    := 0
+  Local nPesb    := 0
+  Local aItems   := {'CAIXA','SACO'}
+
+
+DEFINE MSDIALOG oDlg TITLE "Etiqueta Produção Clover" FROM 000, 000 TO 450, 300 COLORS 0, 16777215 PIXEL
+
+@ 005, 015 SAY oSay  PROMPT "DADOS PARA ETIQUETA" SIZE 300, 020 FONT oFontSubN OF oDlg COLORS 0, 16777215 PIXEL
+@ 020, 020 SAY oSay1 PROMPT "Nº Lote:"     SIZE 065, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 020, 100 SAY oSay8 PROMPT "Sub-Lote:"    SIZE 065, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 060, 015 SAY oSay2 PROMPT "Qtad. Etq.:"  SIZE 030, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+
+@ 030, 020 Get oGet  Var cLote      SIZE 40,15 OF oDlg PIXEL
+@ 030, 100 Get           cSubl      SIZE 40,15 OF oDlg PIXEL //F3 "SD3S"
+@ 055, 055 Get oGet1 Var nQtda      PICTURE "999"      SIZE 40,15 OF oDlg PIXEL 
+
+@ 080, 020 SAY oSay3 PROMPT "DADOS ETQ. MANUAL" SIZE 300, 020 FONT oFontSubN OF oDlg COLORS 0, 16777215 PIXEL
+
+@ 100, 015 SAY oSay4 PROMPT "De :" SIZE 030, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 095, 030 Get oGet2 Var nQtdai  PICTURE "@E 999"      SIZE 40,15 OF oDlg PIXEL 
+
+@ 100, 080 SAY oSay5 PROMPT " Até :" SIZE 030, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 095, 095 Get oGet3 Var nQtdaf  PICTURE "@E 999"      SIZE 40,15 OF oDlg PIXEL 
+
+@ 125, 055 SAY oSay6 PROMPT "Embalagem:"    SIZE 060, 020 FONT oFontCbx OF oDlg COLORS 0, 16777215 PIXEL
+ cCombo1:= aItems[1]
+ oCombo1 := TComboBox():New(135,040,{|u|if(PCount()>0,cCombo1:=u,cCombo1)}, aItems,080,20,oDlg,,,,,,.T.,,,,,,,,,'cCombo1')
+
+@ 170, 005 SAY oSay6 PROMPT "Pes Liq.:" SIZE 030, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 165, 025 Get oGet4 Var nPesl  PICTURE "@E 9.999"      SIZE 40,15 OF oDlg PIXEL 
+
+@ 170, 075 SAY oSay7 PROMPT "Peso Brt.:" SIZE 030, 010 FONT oFontBtn OF oDlg COLORS 0, 16777215 PIXEL
+@ 165, 100 Get oGet5 Var nPesb  PICTURE "@E 9.999"      SIZE 40,15 OF oDlg PIXEL 
+
+@ 200, 030 BUTTON oFontBtn  PROMPT "Imprimir" SIZE 037, 012 OF oDlg PIXEL Action (xNetq(cLote, cSubl, nQtda, nQtdai, nQtdaf, cCombo1, nPesl, nPesb))
+@ 200, 095 BUTTON oFontBtn  PROMPT "Fechar" SIZE 037, 012 OF oDlg PIXEL Action oDlg:End()
+
+
+ACTIVATE MSDIALOG oDlg CENTERED
+   
+Return 
+
+Static Function xNetq(cLote, cSubl, nQtda, nQtdai, nQtdaf, cCombo1, nPesl, nPesb)
+
+    Local cQry := ""
+    Local cLote1 := ALLTRIM(cLote)
+    Local nCount := 0
+    Local cPorta := "LPT1" // Mapeamento feito através de NET USE
+    Local cModelo := "DMX"
+    Local cRot    := "B"
+    Local cQuim   := GetMV("MV_XFRMCLO")
+	
+
+   cQry := " SELECT"           + CRLF
+   cQry += " SC2.C2_PRODUTO "  + CRLF
+   cQry += " ,SC2.C2_XDESCRI " + CRLF
+   cQry += " ,SC2.C2_XLOTE "   + CRLF
+   cQry += " ,CONVERT(VARCHAR(10), CAST(SC2.C2_XDTFAB AS DATE), 103) AS FABRICACAO " + CRLF
+   cQry += " ,CONVERT(VARCHAR(10), CAST(SC2.C2_XDTVALD AS DATE), 103) AS VALIDADE "  + CRLF
+   cQry += " ,(SB1.B1_PESO * SB5.B5_QE1) AS PLIQUIDO "  + CRLF
+   cQry += " ,(SB1.B1_PESBRU * SB5.B5_QE1) AS PBURTO "  + CRLF
+
+   cQry += " ,SB5.B5_QE1 "                              + CRLF
+   cQry += " FROM " +RetSqlName("SC2")+ " SC2(NOLOCK), "    + CRLF
+   cQry += "      " +RetSqlName("SB1")+ " SB1(NOLOCK), "    + CRLF
+   cQry += "      " +RetSqlName("SB5")+ " SB5(NOLOCK) "     + CRLF
+   cQry += " WHERE SC2.C2_XLOTE = '" + ALLTRIM(cLote1) + "'"         + CRLF
+   cQry += " AND SB1.B1_COD = SC2.C2_PRODUTO "               + CRLF
+   cQry += " AND SB5.B5_COD = SC2.C2_PRODUTO "               + CRLF
+   cQry += " AND SC2.D_E_L_E_T_ = '' "                       + CRLF
+
+   If Select("LTO") > 0
+        Dbselectarea("LTO")
+        LTO->(DbClosearea())
+    EndIf
+    
+
+
+    TcQuery cQry New Alias "LTO"
+
+   //Variaveis para etiqueta que vem da query
+   _cCod     := ALLTRIM(LTO->C2_PRODUTO)
+   _cDescri  := ALLTRIM(LTO->C2_XDESCRI)
+   _dFabri   := ALLTRIM(LTO->FABRICACAO)
+   _dValid   := ALLTRIM(LTO->VALIDADE)
+   _cPliq    := TRANSFORM(LTO->PLIQUIDO, '@E 999.999')
+   _cPbrut   := TRANSFORM(LTO->PBURTO, '@E 999.999')
+   _nQtdcx   := TRANSFORM(LTO->B5_QE1, '@E 999.999')
+   _cSublote := ALLTRIM(cSubl)
+   _nQtda1   := nQtda
+   _nQtda2   := nQtdai
+   _nQtda3   := nQtdaf
+   _nPesl    := nPesl
+   _nPesb    := nPesb
+
+if _nQtda1 > 0
+   
+   //IMPRESSÃO ETIQUETA AUTOMATICA
+   FOR nCount := 1 TO _nQtda1
+   _nCount1 := nCount
+   
+  MSCBPRINTER(cModelo, cPorta,,,.F.,,,,,,.F.,)
+  MSCBCHKSTATUS(.F.)
+
+//Quantidade de etiquetas a serem impressa e tamanho da etiqueta(largura)
+
+  MSCBBEGIN(1,5)
+  nLin1 := 28
+  nLin  := 48
+
+//String a ser impressa na etiqueta
+  MSCBSAY(nLin,03,"CODIGO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,20,_cCod,      cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"PRODUTO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,20, _cDescri ,  cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"LOTE: ",        cRot,"3","01,01")
+  MSCBSAY(nLin,15, cLote1 ,        cRot,"3","01,01")
+  MSCBSAY(nLin,50,"COD. INT.: ",  cRot,"3","01,01")
+  MSCBSAY(nLin,70, _cSublote ,     cRot,"3","01,01")
+iF cCombo1 == "SACO"
+  MSCBSAY(nLin,100,"QTDA. CAPS.: ", cRot,"3","01,01")
+  MSCBSAY(nLin,125, "1.000" ,      cRot,"3","01,01")
+Else
+  MSCBSAY(nLin,100,"QTDA. CAPS.: ", cRot,"3","01,01")
+  MSCBSAY(nLin,125, _nQtdcx ,       cRot,"3","01,01")
+EndIf
+  nLin += 06
+  MSCBSAY(nLin,03,"FABRICACAO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,30, _dFabri ,      cRot,"3","01,01")
+  MSCBSAY(nLin,80,"VALIDADE: ",   cRot,"3","01,01")
+  MSCBSAY(nLin,100, _dValid ,     cRot,"3","01,01")
+  nLin += 06
+If cCombo1 != "SACO"
+  MSCBSAY(nLin,03,"P.LIQUIDO: ",  cRot,"3","01,01")
+  MSCBSAY(nLin,30, _cPliq  ,      cRot,"3","01,01")
+  MSCBSAY(nLin,80,"P.BRUTO: ",    cRot,"3","01,01")
+  MSCBSAY(nLin,100,_cPbrut ,      cRot,"3","01,01")
+  nLin += 10
+  MSCBSAY(nLin,03,"CAIXA: ",                                      cRot,"3","01,01")
+  MSCBSAY(nLin,16,+TRANSFORM(_nCount1, '@E 999'),                 cRot,"3","01,01")
+  MSCBSAYBAR(nLin,80, ALLTRIM(cLote) ,"B","MB07",8,.F.,.F., .F. , cRot , 3 , 2 , .F., .T.)
+  nLin += 04
+  MSCBSAY(nLin,90, cLote1 ,        cRot,"2","01,01")
+  MSCBSAY(nLin,03,"QUIM. RESP.:",  cRot,"2","01,01")
+  MSCBSAY(nLin,20,(cQuim),         cRot,"2","01,01")
+else
+  MSCBSAY(nLin,03,"P.LIQUIDO: ",  cRot,"3","01,01")
+  MSCBSAY(nLin,30, +TRANSFORM(_nPesl, '@E 9.999'),      cRot,"3","01,01")
+  MSCBSAY(nLin,80,"P.BRUTO: ",    cRot,"3","01,01")
+  MSCBSAY(nLin,100,+TRANSFORM(_nPesb, '@E 9.999'),      cRot,"3","01,01")
+  nLin += 10
+  MSCBSAYBAR(nLin,80, ALLTRIM(cLote) ,"B","MB07",8,.F.,.F., .F. , cRot , 3 , 2 , .F., .T.)
+  nLin += 04
+  MSCBSAY(nLin,90, cLote1 ,        cRot,"2","01,01")
+  MSCBSAY(nLin,03,"QUIM. RESP.:",  cRot,"2","01,01")
+  MSCBSAY(nLin,20,(cQuim),         cRot,"2","01,01")
+EndIf
+  
+  MSCBInfoEti("Etq Colver", "15X8")
+
+//Finalização da etiqueta
+  MSCBEND()
+
+//Impressão
+  MSCBCLOSEPRINTER()
+
+NEXT
+
+else
+
+//IMPRESSÃO ETIQUETA MANUAL 
+FOR nCount := nQtdai TO nQtdaf
+
+  _nCount1 := nCount
+
+  MSCBPRINTER(cModelo, cPorta,,,.F.,,,,,,.F.,)
+  MSCBCHKSTATUS(.F.)
+
+//Quantidade de etiquetas a serem impressa e tamanho da etiqueta(largura)
+MSCBBEGIN(1,5)
+  nLin1 := 28
+  nLin  := 48
+  
+//String a ser impressa na etiqueta
+  MSCBSAY(nLin,03,"CODIGO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,20,_cCod,      cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"PRODUTO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,20, _cDescri ,  cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"LOTE: ",         cRot,"3","01,01")
+  MSCBSAY(nLin,15, cLote1 ,         cRot,"3","01,01")
+  MSCBSAY(nLin,50,"COD. INT.: ",    cRot,"3","01,01")
+  MSCBSAY(nLin,70, _cSublote ,      cRot,"3","01,01")
+  MSCBSAY(nLin,100,"QTDA. CAPS.: ", cRot,"3","01,01")
+  MSCBSAY(nLin,125, _nQtdcx ,       cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"FABRICACAO: ", cRot,"3","01,01")
+  MSCBSAY(nLin,30, _dFabri ,      cRot,"3","01,01")
+  MSCBSAY(nLin,80,"VALIDADE: ",   cRot,"3","01,01")
+  MSCBSAY(nLin,100, _dValid ,     cRot,"3","01,01")
+  nLin += 06
+  MSCBSAY(nLin,03,"P.LIQUIDO: ",  cRot,"3","01,01")
+  MSCBSAY(nLin,30, _cPliq  ,      cRot,"3","01,01")
+  MSCBSAY(nLin,80,"P.BRUTO: ",    cRot,"3","01,01")
+  MSCBSAY(nLin,100,_cPbrut ,      cRot,"3","01,01")
+   nLin += 10
+  MSCBSAY(nLin,03,"CAIXA.: ",                                     cRot,"2","01,01")
+  MSCBSAY(nLin,15, TRANSFORM(_nCount1, '@e 999')  ,               cRot,"2","01,01")
+
+  MSCBSAYBAR(nLin,80, ALLTRIM(cLote) ,"B","MB07",8,.F.,.F., .F. , cRot , 3 , 2 , .F., .T.)
+  nLin += 04
+  MSCBSAY(nLin,90, cLote1 ,        cRot,"2","01,01")
+  MSCBSAY(nLin,03,"QUIM. RESP.:",  cRot,"2","01,01")
+  MSCBSAY(nLin,20,(cQuim),         cRot,"2","01,01")
+
+
+  MSCBInfoEti("Etq Colver", "15X8")
+
+
+//Finalização da etiqueta
+  MSCBEND()
+
+//Impressão
+  MSCBCLOSEPRINTER()
+
+
+ NEXT
+endif 
+
+Return
+
+
+
